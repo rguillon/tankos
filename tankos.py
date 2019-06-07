@@ -1,38 +1,17 @@
-import setup
-from machine import Pin, PWM
-from sunset import SunsetTime
-from dimmer import Dimmer
+import system
 import time
 
+def run():
 
-class PWMOutput:
-
-    PWM_MAX=1024.0
-
-    def __init__(self, pwm):
-        self.pwm = pwm
-
-    def set(self, value):
-        print("Value to set: %f"%value)
-        self.pwm.duty(int(value * self.PWM_MAX))
+    system.init()
 
 
-pwm1 = PWM(Pin(2, Pin.OUT))
-pwm2 = PWM(Pin(0, Pin.OUT))
-pwmWhite = PWMOutput(pwm1)
-pwmBlue = PWMOutput(pwm2)
-time_src = SunsetTime()
 
-time_src.update()
+    while True:
+        for i  in system.inputs.values():
+            i.update()
 
-dimmerWhite = Dimmer(time_src, pwmWhite, [ [0,0],[100000,1]])
-dimmerBlue  = Dimmer(time_src, pwmBlue, [ [0,0],[100000,1]])
+        for o in system.outputs.values():
+            o.update()
 
-
-setup.do_setup()
-
-while True:
-    dimmerWhite.update()
-    dimmerBlue.update()
-
-    time.sleep_ms(10)
+        time.sleep_ms(10)

@@ -1,5 +1,5 @@
 import sys
-import mqtt_client
+import system
 
 CRITICAL = 50
 ERROR    = 40
@@ -41,9 +41,9 @@ class Logger:
         if level >= (self.level or _level):
             #_stream.write("%s:%s:" % (self._level_str(level), self.name))
             if not args:
-                mqtt_client.publish("tankos/logs/%s"%self.name, msg)
+                system.publish("tankos/logs/%s"%self.name, msg)
             else:
-                mqtt_client.publish("tankos/logs/%s"%self.name, msg % args)
+                system.publish("tankos/logs/%s"%self.name, msg % args)
 
     def debug(self, msg, *args):
         self.log(DEBUG, msg, *args)
