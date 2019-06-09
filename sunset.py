@@ -1,6 +1,10 @@
-import config
-import time
-import http_client
+# Tankos, aquarium monitoring and control for MicroPython
+# Copyright (c) 2019 Renaud Guillon
+# SPDX-License-Identifier: MIT
+
+import logging
+import uaiohttpclient as aiohttp
+
 try:
     import json
 except ImportError:
@@ -10,37 +14,45 @@ try:
 except ImportError:
     import utime as time
 
-
-def get_sunset_time_in_seconds():
-    result = json.loads(http_client.get(
-        'https://api.sunrise-sunset.org/json?lat=%f&lng=%f&formatted=0'%(config.gps_lat,
-            config.gps_lng)).text)
-    sunset_str = result['results']['sunset'].split(
-        'T')[1].split('+')[0].split(':')
-    sunset_int = int(sunset_str[0]) * 3600 + \
-        int(sunset_str[1])*60 + int(sunset_str[2])
-    return sunset_int
+logger = logging.getLogger("sunset")
 
 
 def get_current_time_in_seconds():
-    lt = time.localtime()
+    return time.time() % (24 * 3600)
 
-    return lt[3]*3600 + lt[4]*60 + lt[5]
 
+def get_ms_until_next_update():
+    # return the time in sec until 12AM the next day (UTC time)
+    return (24 + 12) * 3600 - get_current_time_in_seconds()
 
 
 class SunsetTime:
-    def __init__(self, update_period = 23*3600):
-        self.sunset = 0
-        self.update_period = update_period
+    # The service update will fetch today's sunset time, it shall be called at least once a day. The service get_time
+    # will return the number of seconds between now and the sunset time.
+    def __init__(self, gps_lat: float, gps_lng: float):
+        self.url = 'http://api.sunrise-sunset.org/json?lat=%f&lng=%f&formatted=0' % (
+            gps_lat, gps_lng)
+        self.sunset_time = 0
         self.last_update_time = 0
 
-
     def update(self):
-        t = time.time()
-        if t - self.last_update_time > self.update_period:
-            self.sunset = get_sunset_time_in_seconds()
-            self.last_update_time = t
+        global logger
+        resp = await aiohttp.request("GET", self.url)
+        result = await resp.read()
+        res = json.loads(result)
+        sunset_str = res['results']['sunset'].split(
+            'T')[1].split('+')[0].split(':')
+        sunset_int = int(sunset_str[0]) * 3600 + \
+            int(sunset_str[1]) * 60 + int(sunset_str[2])
+        logger.info("New sunset time : %d" % sunset_int)
+        self.sunset_time = sunset_int
+        self.last_update_time = time.time()
 
-    def getTime(self):
-        return get_current_time_in_seconds() - self.sunset
+    def get_time(self):
+        if self.last_update_time == 0:
+            return None
+        else:
+            return get_current_time_in_seconds() - self.sunset_time
+
+    def get_ms_until_next_update(self):
+        return 1000 * ((24+12)*3600 - get_current_time_in_seconds())

@@ -1,0 +1,3 @@
+import tankos
+
+tankos.run()

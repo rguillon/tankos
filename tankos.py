@@ -1,17 +1,22 @@
 import system
-import time
+import uasyncio as asyncio
+
+
+async def periodic_task(obj):
+    while True:
+        try:
+            await obj.update()
+        except:
+            pass
+        await asyncio.sleep_ms(obj.get_ms_until_next_update())
+
 
 def run():
-
     system.init()
 
+    loop = asyncio.get_event_loop()
 
+    for task in system.tasks.values():
+        loop.create_task(periodic_task(task))
 
-    while True:
-        for i  in system.inputs.values():
-            i.update()
-
-        for o in system.outputs.values():
-            o.update()
-
-        time.sleep_ms(10)
+    loop.run_forever()

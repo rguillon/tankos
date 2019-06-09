@@ -1,38 +1,46 @@
-import config
+# Tankos, aquarium monitoring and control for MicroPython
+# Copyright (c) 2019 Renaud Guillon
+# SPDX-License-Identifier: MIT
+
 import network
+import logging
 import ntptime
+from machine import Pin, PWM, I2C
 
-from machine import Pin, PWM
-from sunset import SunsetTime
+import config
 from dimmer import Dimmer
-
+from display import Display
+from mqtt_logs import MqttLogs
+from sunset import SunsetTime
+from time_sync import TimeSync
 from umqtt.robust import MQTTClient
+
 
 mqtt_client = None
 
-outputs = {}
 
-inputs = {}
+tasks = {}
+
 
 class PWMOutput:
-
-    PWM_MAX=1024.0
+    # adapter class between the Dimmer and the PWM output
+    PWM_MAX = 1024.0
 
     def __init__(self, pwm):
         self.pwm = pwm
 
     def set(self, value):
-        print("Value to set: %f"%value)
         self.pwm.duty(int(value * self.PWM_MAX))
 
 
-
-def publish(topic, msg):
-     mqtt_client.publish(topic, msg)
-
+pwm1 = PWM(Pin(2, Pin.OUT))
+pwm2 = PWM(Pin(0, Pin.OUT))
+i2c = I2C(-1, Pin(21, Pin.OUT), Pin(22, Pin.OUT))
 
 
 def init():
+    # Factory function that intantiates and configure the tasks
+    global tasks, pwm1, pwm2, i2c
     sta_if = network.WLAN(network.STA_IF)
     if not sta_if.isconnected():
         print('connecting to network...')
@@ -40,29 +48,22 @@ def init():
         sta_if.connect(config.wlan_ssid, config.wlan_pass)
         while not sta_if.isconnected():
             pass
-
     ntptime.settime()
 
     global mqtt_client
     mqtt_client = MQTTClient("tankos_client", config.mqtt_broker)
     mqtt_client.connect()
 
+    tasks["time"] = SunsetTime(gps_lat=config.gps_lat, gps_lng=config.gps_lng)
+    tasks["time_sync"] = TimeSync(i2c)
+    tasks["mqtt_logs"] = MqttLogs(
+        mqtt_client=mqtt_client, topic="tankos/logs/", max_msg=100)
 
-    pwm1 = PWM(Pin(2, Pin.OUT))
-    pwm2 = PWM(Pin(0, Pin.OUT))
+    tasks["white_dimer"] = Dimmer(
+        "while", tasks["time"], PWMOutput(pwm1), [[0, 0], [100000, 1]])
+    tasks["blue_dimmer"] = Dimmer(
+        "blue", tasks["time"], PWMOutput(pwm2), [[0, 0], [100000, 1]])
+    tasks["display"] = Display(i2c)
 
-    global inputs
-    inputs["time"] =  SunsetTime()
-
-    global outputs
-    outputs["white_dimer"] = Dimmer(inputs["time"], PWMOutput(pwm1), [ [0,0],[100000,1]])
-    outputs["blue_dimmer"] = Dimmer(inputs["time"], PWMOutput(pwm2), [ [0,0],[100000,1]])
-
-
-
-#    while True:
-#        dimmerWhite.update()
-#        dimmerBlue.update()
-#        print(gc.mem_free())
-#        time.sleep_ms(10)
-
+    logging.basicConfig(level=logging.INFO, filename=None,
+                        stream=tasks["mqtt_logs"], format=None)
