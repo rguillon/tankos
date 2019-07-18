@@ -36,10 +36,10 @@ class MqttLogs(io.IOBase):
             else:
                 self.current_log = self.current_log + msg
 
-    def update(self):
+    async def update(self):
         while len(self.logs) > 0:
             sub_topic, msg = self.logs.pop()
             await self.mqtt_client.publish(self.topic + sub_topic, msg)
 
     def get_ms_until_next_update(self):
-        return 100
+        return 10

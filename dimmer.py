@@ -18,28 +18,31 @@ class Dimmer:
         self.time_table = time_table
         self.time_table.sort()
         self.safe_output = safe_output
+        self.value = 0
 
-    def update(self):
+    async def update(self):
         global logger
-        v = 0.0
         t = self.timer.get_time()
         if t is not None:
             if t <= self.time_table[0][0]:
-                v = self.time_table[0][1]
+                self.value = self.time_table[0][1]
             elif t < self.time_table[-1][0]:
                 for i in range(1, len(self.time_table)):
                     if t <= self.time_table[i][0]:
                         t1, v1 = self.time_table[i - 1]
                         t2, v2 = self.time_table[i]
-                        v = v1 + float(v2 - v1) * (t - t1) / float(t2 - t1)
+                        self.value = v1 + float(v2 - v1) * (t - t1) / float(t2 - t1)
                         break
             else:
-                v = self.time_table[-1][1]
+                self.value = self.time_table[-1][1]
         else:
-            v = self.safe_output
+            self.value = self.safe_output
 
-        logger.info("Dimmer %s set %f at time %d" % (self.name, v, t))
-        self.output.set(v)
+        logger.info("Dimmer %s set %f" % (self.name, self.value))
+        self.output.set(self.value)
+
+    def get_value(self):
+        return self._value
 
     def get_ms_until_next_update(self):
         return 1000

@@ -81,10 +81,7 @@ class DS3231:
                 secs = utime.mktime(result)
                 utime.localtime(secs)
             else:
-                if sys.platform == 'pyboard':
-                    rtc.datetime((YY, MM, DD, wday, hh, mm, ss, 0))
-                else:
-                    rtc.init((YY, MM, DD, hh, mm, ss))
+                rtc.datetime((YY, MM, DD, wday, hh, mm, ss, 0))
         return result
 
     def save_time(self):
