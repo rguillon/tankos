@@ -1,4 +1,4 @@
-# Tankos, aquarium monitoring and control for MicroPython
+# Tanreceive_ckos, aquarium monitoring and control for MicroPython
 # Copyright (c) 2019 Renaud Guillon
 # SPDX-License-Identifier: MIT
 
@@ -14,7 +14,6 @@ from display import Display
 from mqtt_logs import MqttLogs
 from sunset import SunsetTime
 from time_sync import TimeSync
-from umqtt.robust import MQTTClient
 from wdt import Wdt
 
 import mqtt_as
@@ -27,7 +26,7 @@ tasks = {}
 
 class PWMOutput:
     # adapter class between the Dimmer and the PWM output
-    PWM_MAX = 1024.0
+    PWM_MAX = 1023.0
 
     def __init__(self, pwm):
         self.pwm = pwm
@@ -36,9 +35,10 @@ class PWMOutput:
         self.pwm.duty(int(value * self.PWM_MAX))
 
 
-pwm1 = PWM(Pin(2, Pin.OUT))
-pwm2 = PWM(Pin(0, Pin.OUT))
-i2c = I2C(-1, Pin(21, Pin.OUT), Pin(22, Pin.OUT))
+pwm1 = PWM(Pin(12, Pin.OUT))
+pwm2 = PWM(Pin(13, Pin.OUT))
+pwm3 = PWM(Pin(14, Pin.OUT))
+i2c = I2C(-1, Pin(18, Pin.OUT), Pin(19, Pin.OUT))
 
 
 mqtt = None
@@ -89,17 +89,24 @@ def init():
     mqtt_logs = MqttLogs(
         mqtt_client=mqtt_client, topic="tankos/logs/", max_msg=100)
 
-    white_dimmer = Dimmer("while", sunset, PWMOutput(pwm1), [[0, 0], [100000, 1]])
-    blue_dimmer = Dimmer("blue", sunset, PWMOutput(pwm2), [[0, 0], [100000, 1]])
-    display = Display(i2c, [white_dimmer, blue_dimmer])
+    cold_white_schedule = [[-3600*2, 0], [-3600, 1.0], [3600*5, 0.8], [3600*6, 0]]
+    warm_white_schedule = [[-3600*2, 0], [-3600, 1.0], [3600*4, 1.0], [3600*5, 0]]
+    
+    white_schedule = [[-3600*2, 0], [-3600, 0.6], [3600*4, 0.8], [3600*5, 0]]
+    
+    cold_white_dimmer = Dimmer("cold_white", sunset, PWMOutput(pwm2), cold_white_schedule)
+    warm_white_dimmer = Dimmer("warm_white", sunset, PWMOutput(pwm3), warm_white_schedule)
+    white_dimmer = Dimmer("while", sunset, PWMOutput(pwm1), white_schedule)
+    display = Display(i2c, [white_dimmer],sunset)
     #wdt = Wdt()
 
     global tasks
     tasks["01_mqtt_logs"] = mqtt_logs
     tasks["02_time_syn"] = time_sync
     tasks["03_sunset"] = sunset
-    tasks["04_while_dimmer"] = white_dimmer
-    tasks["05_blue_dimmer"] = blue_dimmer
+    tasks["04_cold_while_dimmer"] = cold_white_dimmer
+    tasks["05_warm__dimmer"] = warm_white_dimmer
+    tasks["06_while_dimmer"] = white_dimmer
     tasks["06_display"] = display
 
    # tasks["wdt"] = Wdt()

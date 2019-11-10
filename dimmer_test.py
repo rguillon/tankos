@@ -20,7 +20,7 @@ class StubTime():
 
 class StubOutput():
     def __init__(self):
-        pass
+        self.value = 0
 
     def set(self, value):
         self.value = value

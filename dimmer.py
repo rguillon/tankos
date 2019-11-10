@@ -28,7 +28,7 @@ class Dimmer:
                 self.value = self.time_table[0][1]
             elif t < self.time_table[-1][0]:
                 for i in range(1, len(self.time_table)):
-                    if t <= self.time_table[i][0]:
+                    if t < self.time_table[i][0]:
                         t1, v1 = self.time_table[i - 1]
                         t2, v2 = self.time_table[i]
                         self.value = v1 + float(v2 - v1) * (t - t1) / float(t2 - t1)
@@ -42,7 +42,7 @@ class Dimmer:
         self.output.set(self.value)
 
     def get_value(self):
-        return self._value
+        return self.value
 
     def get_ms_until_next_update(self):
         return 1000

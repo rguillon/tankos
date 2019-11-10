@@ -14,9 +14,11 @@ logger = logging.Logger("time_sync")
 class TimeSync():
 
     def __init__(self, con, i2c):
-        try :
+        try:
             self.ext_rtc = ds3231_port.DS3231(i2c)
+            logger.info("Using External RTC")
         except ds3231_port.DS3231Exception:
+            logger.warning("External RTC not found, using NTP only")
             self.ext_rtc = None
         self.con = con
 
@@ -24,15 +26,16 @@ class TimeSync():
         global logger
 
         if self.ext_rtc is not None:
-            t = self.ds3231.get_time(set_rtc = True)
+            t = self.ext_rtc.get_time(set_rtc = True)
             logger.info("Updating internal RTC %s with external one %s" %
                         (time.localtime(), t))
         try:
             if self.con.isconnected():
                 ntptime.settime()
+                logger.info("RTC updated according to NTP")
                 if self.ext_rtc is not None:
                     self.ext_rtc.save_time()
-                logger.info("RTC updated according to NTP")
+                    logger.info("External RTC updated according to NTP")
         except IndexError as e:
             logger.warning("NTP sync failed")
             pass
